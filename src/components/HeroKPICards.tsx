@@ -1,98 +1,68 @@
 import { useDashboard } from '../context/DashboardContext';
-import { Hospital, ShieldAlert, BedDouble, ArrowLeftRight } from 'lucide-react';
+import { Activity, AlertTriangle, ShieldCheck, Truck } from 'lucide-react';
 
 export default function HeroKPICards() {
-  const { metrics, setActiveView } = useDashboard();
+  const { metrics, clinics } = useDashboard();
 
-  if (!metrics) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-pulse">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="bg-slate-900/60 border border-slate-800 rounded-2xl h-28"></div>
-        ))}
-      </div>
-    );
-  }
+  // Safeguard default fallbacks if metrics haven't loaded yet
+  const totalPHCs = metrics?.phcs_monitored ?? clinics.length ?? 0;
+  const criticalStockouts = metrics?.critical_stockouts ?? 0;
+  const operationalBeds = metrics?.operational_beds ?? 0;
+  const pendingTransfers = metrics?.pending_transfers ?? 0;
 
-  const cardConfigs = [
+  const cards = [
     {
-      title: 'PHCs Monitored',
-      value: metrics.totalPHCs,
-      desc: 'All nodes online (100%)',
-      icon: Hospital,
-      color: 'emerald',
-      action: () => setActiveView('command-center'),
-      borderStyle: 'border-slate-800/80 hover:border-emerald-500/30'
+      title: 'Nodes Monitored',
+      value: totalPHCs,
+      description: 'Active facility data loops',
+      icon: Activity,
+      color: 'text-emerald-400',
+      bg: 'bg-emerald-500/5 border-emerald-500/10'
     },
     {
       title: 'Critical Stockouts',
-      value: metrics.criticalStockouts,
-      desc: metrics.criticalStockouts > 0 ? `${metrics.criticalStockouts} facilities need attention` : 'Optimal inventory levels',
-      icon: ShieldAlert,
-      color: 'rose',
-      pulse: metrics.criticalStockouts > 0,
-      action: () => setActiveView('command-center'),
-      borderStyle: metrics.criticalStockouts > 0 ? 'border-rose-500/30 hover:border-rose-500/50 bg-rose-500/[0.02]' : 'border-slate-800/80 hover:border-emerald-500/30'
+      value: criticalStockouts,
+      description: 'Requires immediate action',
+      icon: AlertTriangle,
+      color: criticalStockouts > 0 ? 'text-rose-400 animate-pulse' : 'text-slate-400',
+      bg: criticalStockouts > 0 ? 'bg-rose-500/5 border-rose-500/15' : 'bg-slate-900/40 border-slate-800/80'
     },
     {
-      title: 'Operational Beds Available',
-      value: metrics.operationalBedsAvailable,
-      desc: 'District capacity: 300 beds total',
-      icon: BedDouble,
-      color: 'emerald',
-      action: () => setActiveView('clinic-details'),
-      borderStyle: 'border-slate-800/80 hover:border-emerald-500/30'
+      title: 'Operational Beds',
+      value: operationalBeds,
+      description: 'District capacity overhead',
+      icon: ShieldCheck,
+      color: 'text-blue-400',
+      bg: 'bg-blue-500/5 border-blue-500/10'
     },
     {
-      title: 'Pending Inter-PHC Transfers',
-      value: metrics.pendingTransfers,
-      desc: metrics.pendingTransfers > 0 ? `${metrics.pendingTransfers} routes calculated by AI` : 'All transfers resolved',
-      icon: ArrowLeftRight,
-      color: 'amber',
-      action: () => setActiveView('supply-hub'),
-      borderStyle: metrics.pendingTransfers > 0 ? 'border-amber-500/30 hover:border-amber-500/50 bg-amber-500/[0.01]' : 'border-slate-800/80 hover:border-emerald-500/30'
+      title: 'Pending Logistics En-Route',
+      value: pendingTransfers,
+      description: 'Active dynamic balancing orders',
+      icon: Truck,
+      color: 'text-amber-400',
+      bg: 'bg-amber-500/5 border-amber-500/10'
     }
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-      {cardConfigs.map((card, idx) => {
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {cards.map((card, idx) => {
         const Icon = card.icon;
         return (
-          <div
-            key={idx}
-            onClick={card.action}
-            className={`border rounded-2xl p-5 transition-all duration-300 cursor-pointer flex justify-between items-start bg-slate-900/40 backdrop-blur-sm group select-none hover:shadow-lg hover:-translate-y-0.5 ${card.borderStyle}`}
-          >
-            <div className="space-y-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-slate-300">
-                {card.title}
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="text-3xl font-extrabold tracking-tight text-white font-mono leading-none">
+          <div key={idx} className={`p-4.5 rounded-2xl border transition-all duration-300 ${card.bg}`}>
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{card.title}</p>
+                <h3 className="text-2xl font-black text-white mt-1.5 font-mono tracking-tight leading-none">
                   {card.value}
-                </span>
-                {card.pulse && (
-                  <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
-                  </span>
-                )}
+                </h3>
               </div>
-              <p className="text-xs text-slate-500 font-medium group-hover:text-slate-400">
-                {card.desc}
-              </p>
+              <div className={`p-2 rounded-xl bg-slate-950/40 border border-slate-800/50 ${card.color}`}>
+                <Icon className="w-4 h-4" />
+              </div>
             </div>
-            
-            <div className={`p-3 rounded-xl transition-all duration-300 border ${
-              card.color === 'rose'
-                ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 group-hover:bg-rose-500/20'
-                : card.color === 'amber'
-                ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 group-hover:bg-amber-500/20'
-                : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500/20'
-            }`}>
-              <Icon className="w-5 h-5 transition-transform duration-300 group-hover:rotate-6" />
-            </div>
+            <p className="text-[10px] text-slate-500 font-medium mt-2">{card.description}</p>
           </div>
         );
       })}
