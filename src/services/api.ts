@@ -43,7 +43,7 @@ export interface DistrictMetrics {
 }
 
 // Global local server connection target
-const API_BASE_URL = "https://aegis-health-backend-production.up.railway.app";
+const BASE_API_URL = "https://aegis-health-backend-production.up.railway.app";
 
 export async function fetchDistrictMetrics(): Promise<DistrictMetrics> {
   try {
