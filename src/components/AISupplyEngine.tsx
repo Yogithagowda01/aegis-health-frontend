@@ -1,5 +1,5 @@
 import { useDashboard } from '../context/DashboardContext';
-import { Cpu, ArrowRight, CheckCircle, AlertCircle } from 'lucide-react';
+import { Cpu, ArrowRight, CheckCircle } from 'lucide-react';
 
 export default function AISupplyEngine() {
   const { 
