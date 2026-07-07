@@ -1,22 +1,31 @@
 import { useDashboard } from '../context/DashboardContext';
-import { ShieldAlert, UserX, AlertTriangle, Eye, ArrowRight } from 'lucide-react';
+import { AlertTriangle, Bed, Package } from 'lucide-react';
 
 export default function WatchlistPanel() {
   const { clinics, setSelectedClinicId, setActiveView } = useDashboard();
 
-  // Flag clinics that are either in critical/warning state, missing doctors, or have critical stockouts
-  const watchlistClinics = clinics
-    .map(clinic => {
+  // Dynamically filter and calculate watch items based on real inventory/bed counts
+  const watchlistItems = clinics
+    .map((clinic) => {
       const issues: string[] = [];
-      if (clinic.doctorsCount < clinic.requiredDoctors) {
-        issues.push(`Staff Shortage: ${clinic.requiredDoctors - clinic.doctorsCount} missing physician(s)`);
+
+      // Check for any critical inventory items (stock value <= 15)
+      const criticalInventoryItems = Object.entries(clinic.inventory || {})
+        .filter(([_, stock]) => Number(stock) <= 15)
+        .map(([name]) => name);
+
+      if (criticalInventoryItems.length > 0) {
+        issues.push(`Critical stockout risk: ${criticalInventoryItems.join(', ')}`);
       }
-      if (clinic.criticalStockouts.length > 0) {
-        issues.push(`Critical Stockouts: ${clinic.criticalStockouts.join(', ')}`);
+
+      // If the clinic status indicates warning or critical, or has high stockouts reported
+      if (clinic.stockout_count > 0) {
+        issues.push(`Reported ${clinic.stockout_count} severe item alert sequences`);
       }
-      const occupancyRatio = clinic.bedOccupancy / clinic.bedCapacity;
-      if (occupancyRatio > 0.85) {
-        issues.push(`Extreme Bed Capacity: ${clinic.bedOccupancy}/${clinic.bedCapacity} beds occupied (${Math.round(occupancyRatio * 100)}%)`);
+
+      // Check operational capacity restrictions (Simulating alert if beds drop low)
+      if (clinic.beds <= 10) {
+        issues.push(`Emergency bed availability low (${clinic.beds} remaining)`);
       }
 
       return {
@@ -24,93 +33,76 @@ export default function WatchlistPanel() {
         issues
       };
     })
-    .filter(c => c.status === 'critical' || c.status === 'warning' || c.issues.length > 0);
+    .filter((clinic) => clinic.issues.length > 0 || clinic.status === 'critical' || clinic.status === 'warning');
 
-  const handleInspect = (clinicId: string) => {
-    setSelectedClinicId(clinicId);
+  const handleClinicClick = (id: string) => {
+    setSelectedClinicId(id);
     setActiveView('clinic-details');
   };
 
   return (
-    <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 select-none">
-      <div className="flex justify-between items-center mb-5">
-        <div>
-          <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-            <ShieldAlert className="w-4 h-4 text-rose-400" />
-            District Watchlist & Critical Alerts
-          </h3>
-          <p className="text-xs text-slate-500 font-medium">
-            Automated monitoring of resource depletion, staffing deficits, and stockouts
-          </p>
-        </div>
-        <span className="text-[10px] font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
-          {watchlistClinics.length} Facilities Flagged
-        </span>
+    <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 h-full flex flex-col">
+      <div className="mb-4">
+        <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+          <AlertTriangle className="w-4 h-4 text-amber-500" />
+          High-Risk Watchlist
+        </h3>
+        <p className="text-[11px] text-slate-500 mt-0.5">
+          Automated anomalies tracking regional resource failures.
+        </p>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs">
-          <thead>
-            <tr className="border-b border-slate-800/60 text-slate-400 font-semibold">
-              <th className="py-3 px-4">Health Facility</th>
-              <th className="py-3 px-4">Safety Status</th>
-              <th className="py-3 px-4">Identified Operational Issues</th>
-              <th className="py-3 px-4 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800/40">
-            {watchlistClinics.map((clinic) => (
-              <tr key={clinic.id} className="hover:bg-slate-800/20 transition-colors">
-                <td className="py-3.5 px-4">
-                  <div className="font-semibold text-slate-200">{clinic.name}</div>
-                  <div className="text-[10px] text-slate-500 font-mono mt-0.5">{clinic.type}</div>
-                </td>
-                <td className="py-3.5 px-4">
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+      <div className="space-y-3 overflow-y-auto flex-1 pr-1 max-h-[380px] custom-scrollbar">
+        {watchlistItems.length === 0 ? (
+          <div className="text-center py-8 text-slate-600 text-xs font-medium border border-dashed border-slate-800 rounded-xl">
+            All regional facility nodes currently operating inside safe margins.
+          </div>
+        ) : (
+          watchlistItems.map((clinic) => (
+            <div
+              key={clinic.id}
+              onClick={() => handleClinicClick(clinic.id)}
+              className={`p-3.5 rounded-xl border transition-all duration-200 cursor-pointer text-left ${
+                clinic.status === 'critical'
+                  ? 'bg-rose-500/[0.02] border-rose-500/20 hover:border-rose-500/40'
+                  : 'bg-amber-500/[0.02] border-amber-500/20 hover:border-amber-500/40'
+              }`}
+            >
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-200 leading-tight">
+                    {clinic.name}
+                  </h4>
+                  <p className="text-[9px] text-slate-500 font-medium font-mono mt-0.5">
+                    ID: {clinic.id}
+                  </p>
+                </div>
+                <span
+                  className={`text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
                     clinic.status === 'critical'
-                      ? 'bg-rose-500/15 border-rose-500/30 text-rose-400'
-                      : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
-                  }`}>
-                    {clinic.status.toUpperCase()}
-                  </span>
-                </td>
-                <td className="py-3.5 px-4 space-y-1">
-                  {clinic.issues.map((issue, idx) => {
-                    const isStaff = issue.includes('Staff');
-                    const isStock = issue.includes('Stock');
-                    const Icon = isStaff ? UserX : isStock ? AlertTriangle : ShieldAlert;
-                    return (
-                      <div key={idx} className="flex items-center gap-1.5 text-slate-300 font-medium">
-                        <Icon className={`w-3.5 h-3.5 ${
-                          isStaff ? 'text-amber-400' : isStock ? 'text-rose-400' : 'text-rose-400'
-                        }`} />
-                        <span>{issue}</span>
-                      </div>
-                    );
-                  })}
-                </td>
-                <td className="py-3.5 px-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => handleInspect(clinic.id)}
-                      className="py-1.5 px-3 bg-slate-800 hover:bg-slate-700/80 border border-slate-750 text-slate-300 hover:text-white rounded-lg transition-colors flex items-center gap-1"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      Ledger
-                    </button>
-                    <button
-                      onClick={() => setActiveView('supply-hub')}
-                      className="py-1.5 px-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 rounded-lg transition-colors flex items-center gap-1"
-                    >
-                      AI Re-route
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
+                      ? 'bg-rose-500/15 text-rose-400'
+                      : 'bg-amber-500/15 text-amber-400'
+                  }`}
+                >
+                  {clinic.status}
+                </span>
+              </div>
+
+              <div className="space-y-1.5">
+                {clinic.issues.map((issue, idx) => (
+                  <div key={idx} className="flex items-start gap-1.5 text-[10px] text-slate-400 font-medium leading-tight">
+                    {issue.includes('stockout') ? (
+                      <Package className="w-3 h-3 text-rose-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <Bed className="w-3 h-3 text-amber-400 shrink-0 mt-0.5" />
+                    )}
+                    <span>{issue}</span>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
