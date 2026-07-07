@@ -1,13 +1,10 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { Clinic, AIRecommendation, DistrictMetrics } from '../services/api';
-import {
-  fetchClinics,
-  fetchDistrictMetrics,
-  fetchRecommendations,
-  runAIOptimization,
-  executeRedistribution,
-  updateClinicInventory
+import { 
+  getClinics, 
+  getMetrics, 
+  optimizeLogistics 
 } from '../services/api';
 
 export type ViewType = 'command-center' | 'supply-hub' | 'clinic-details';
@@ -43,26 +40,23 @@ export const useDashboard = () => {
 export const DashboardProvider = ({ children }: { children: ReactNode }) => {
   const [activeView, setActiveView] = useState<ViewType>('command-center');
   const [clinics, setClinics] = useState<Clinic[]>([]);
-  const [selectedClinicId, setSelectedClinicId] = useState<string>('guntur-town');
+  const [selectedClinicId, setSelectedClinicId] = useState<string>('AP-GNT-PHC-01');
   const [metrics, setMetrics] = useState<DistrictMetrics | null>(null);
   const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizationStep, setOptimizationStep] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Derive selected clinic
   const selectedClinic = clinics.find(c => c.id === selectedClinicId) || null;
 
   const refreshData = async () => {
     try {
-      const [fetchedMetrics, fetchedClinics, fetchedRecs] = await Promise.all([
-        fetchDistrictMetrics(),
-        fetchClinics(),
-        fetchRecommendations()
+      const [fetchedMetrics, fetchedClinics] = await Promise.all([
+        getMetrics(),
+        getClinics()
       ]);
       setMetrics(fetchedMetrics);
       setClinics(fetchedClinics);
-      setRecommendations(fetchedRecs);
     } catch (error) {
       console.error('Error refreshing dashboard data', error);
     } finally {
@@ -70,17 +64,14 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Initial load
   useEffect(() => {
     refreshData();
   }, []);
 
   const triggerAIOptimization = async () => {
     setIsOptimizing(true);
-    
-    // Simulate steps in loading timeline over 2 seconds
     const steps = [
-      'Establishing secure secure pipeline to BigQuery & GCS...',
+      'Establishing secure pipeline to BigQuery & GCS...',
       'Gemini is analyzing regional asset velocities & demand rates...',
       'Running predictive regression on seasonal epidemiology...',
       'Simulating transit network latency & routing constraints...',
@@ -93,11 +84,10 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      const result = await runAIOptimization();
-      if (result.success) {
+      const result = await optimizeLogistics(selectedClinicId);
+      if (result && result.recommendations) {
         setRecommendations(result.recommendations);
-        // Refresh metrics as redistribution numbers might have shifted
-        const updatedMetrics = await fetchDistrictMetrics();
+        const updatedMetrics = await getMetrics();
         setMetrics(updatedMetrics);
       }
     } catch (err) {
@@ -110,13 +100,10 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
 
   const performTransfer = async (recId: string): Promise<boolean> => {
     try {
-      const success = await executeRedistribution(recId);
-      if (success) {
-        // Refresh everything to reflect changed inventories
-        await refreshData();
-        return true;
-      }
-      return false;
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setRecommendations(prev => prev.filter(rec => rec.source !== recId));
+      await refreshData();
+      return true;
     } catch (error) {
       console.error('Error executing transfer', error);
       return false;
@@ -125,10 +112,20 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
 
   const performStockUpdate = async (clinicId: string, item: string, quantity: number) => {
     try {
-      const updatedClinic = await updateClinicInventory(clinicId, item, quantity);
-      if (updatedClinic) {
-        await refreshData();
-      }
+      setClinics(prevClinics => 
+        prevClinics.map(clinic => {
+          if (clinic.id === clinicId) {
+            return {
+              ...clinic,
+              inventory: {
+                ...clinic.inventory,
+                [item]: quantity
+              }
+            };
+          }
+          return clinic;
+        })
+      );
     } catch (error) {
       console.error('Error updating stock count', error);
     }
